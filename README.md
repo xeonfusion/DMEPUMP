@@ -15,4 +15,4 @@ Supports:
 - Custom simulation step time
 - Fast-mode and real-time mode simulation 
 
-<img width="1435" height="797" alt="Screenshot 2026-05-15 at 3 28 40 PM" src="https://github.com/user-attachments/assets/559a58fc-7d3a-4675-81ef-991c9b92060b" />
+<img width="1394" height="789" alt="Screenshot 2026-07-14 at 5 19 17 PM" src="https://github.com/user-attachments/assets/3ba1ba4d-741a-4632-8210-e50d6400a07b" />
