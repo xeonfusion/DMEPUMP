@@ -1,6 +1,8 @@
 # DMEPUMP
 DMEPUMP (C) 2025-26 John George K. algorithm for Target Control Infusion (TCI) calculation and simulation
 
+For the Web version visit: https://xeonfusion.github.io/DMEPUMP/ (can be added to home screen)
+
 Supports:
 - Real-time Plotting
 - Cp, Ce and infusion rate CSV data export
