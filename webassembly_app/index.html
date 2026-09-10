@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DMEPUMP TCI &mdash; WebAssembly Edition (C) John George K. xeonfusion@yahoo.com</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1720">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DMEPUMP TCI">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>DMEPUMP TCI <span class="badge">WebAssembly</span></h1>
+  <p class="subtitle">(C) John George K. xeonfusion@yahoo.com</p>
+</header>
+
+<main>
+  <section id="loading-panel" class="panel">
+    <div id="loading-status">Loading Python runtime&hellip;</div>
+    <progress id="loading-bar" max="100" value="5"></progress>
+  </section>
+
+  <section id="app-panel" class="panel hidden">
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="tab-group" id="sidebar-tabs">
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab-btn active" data-tab="drug" role="tab" aria-selected="true">Drug &amp; Model</button>
+            <button type="button" class="tab-btn" data-tab="patient" role="tab" aria-selected="false">Patient</button>
+            <button type="button" class="tab-btn" data-tab="infusion" role="tab" aria-selected="false">Infusion Setup</button>
+            <button type="button" class="tab-btn" data-tab="profile" role="tab" aria-selected="false">Target Profile</button>
+          </div>
+
+          <div class="tab-panel active" data-panel="drug">
+            <label>Drug
+              <select id="drug-select"></select>
+            </label>
+            <label>PK/PD Model
+              <select id="model-select"></select>
+            </label>
+            <div id="model-description" class="hint"></div>
+
+            <label>ke0 mode
+              <select id="ke0-mode-select">
+                <option value="">Model default</option>
+                <option value="fixed_ke0">Fixed ke0 (standard model)</option>
+                <option value="fixed_tpeak">Fixed initial tpeak</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="tab-panel" data-panel="patient">
+            <label>Age (yr) <input type="number" id="age-input" value="40" step="1"></label>
+            <label>Weight (kg) <input type="number" id="weight-input" value="70" step="1"></label>
+            <label>Height (cm) <input type="number" id="height-input" value="170" step="1"></label>
+            <label>Sex
+              <select id="sex-select">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="tab-panel" data-panel="infusion">
+            <label>Targeting mode
+              <select id="targeting-mode-select">
+                <option value="Effect-site">Effect-site</option>
+                <option value="Plasma-site">Plasma-site</option>
+              </select>
+            </label>
+            <label>Convergence method
+              <select id="convergence-select">
+                <option value="Fixed-point iteration">Fixed-point iteration</option>
+                <option value="Jacobian Newton-Raphson">Jacobian Newton-Raphson</option>
+              </select>
+            </label>
+            <label>Drug concentration (syringe)
+              <input type="number" id="drug-conc-input" value="10" step="0.1">
+              <span id="syringe-unit-label" class="unit"></span>
+            </label>
+            <label>Max infusion rate
+              <input type="number" id="max-rate-input" value="200" step="1">
+              <span id="rate-unit-label" class="unit"></span>
+            </label>
+            <label>Rate display unit
+              <select id="rate-display-select"></select>
+            </label>
+            <label>Step time (s) <input type="number" id="dt-input" value="10" step="1" min="1"></label>
+            <label>Prediction window (min) <input type="number" id="pred-window-input" value="45" step="1" min="5"></label>
+            <label class="checkbox"><input type="checkbox" id="rsi-checkbox"> RSI bolus mode</label>
+            <label>RSI bolus time (s) <input type="number" id="rsi-time-input" value="10" step="1" min="1"></label>
+          </div>
+
+          <div class="tab-panel" data-panel="profile">
+            <label>Total duration (min) <input type="number" id="duration-input" value="30" step="1" min="1"></label>
+            <table id="target-table">
+              <thead><tr><th>Time (min)</th><th>Target Ce/Cp</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <button id="add-target-row-btn" type="button">+ Add step</button>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="run-btn" type="button" class="primary">Run Simulation</button>
+          <button id="csv-btn" type="button" disabled>Download CSV</button>
+        </div>
+
+        <div id="pk-summary" class="hint"></div>
+      </aside>
+
+      <section class="chart-pane">
+        <section id="results" class="hidden">
+          <div class="tab-group" id="results-tabs">
+            <div class="tabs" role="tablist">
+              <button type="button" class="tab-btn active" data-tab="charts" role="tab" aria-selected="true">Charts</button>
+              <button type="button" class="tab-btn" data-tab="pkpd" role="tab" aria-selected="false">PK/PD Parameters</button>
+              <button type="button" class="tab-btn" data-tab="table" role="tab" aria-selected="false">Data Table</button>
+            </div>
+
+            <div class="tab-panel active" data-panel="charts">
+              <div class="chart-wrap">
+                <canvas id="conc-chart"></canvas>
+                <div id="conc-chart-tooltip" class="chart-tooltip"></div>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="rate-chart"></canvas>
+                <div id="rate-chart-tooltip" class="chart-tooltip"></div>
+              </div>
+            </div>
+
+            <div class="tab-panel" data-panel="pkpd">
+              <div class="card">
+                <h2>PK Parameters</h2>
+                <div id="pk-params" class="param-list"></div>
+              </div>
+              <div class="card">
+                <h2>PD Parameters</h2>
+                <div id="pd-params" class="param-list"></div>
+              </div>
+            </div>
+
+            <div class="tab-panel" data-panel="table">
+              <div class="table-scroll">
+                <table id="data-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th id="th-target">Target</th>
+                      <th id="th-cp">Cp</th>
+                      <th id="th-ce">Ce</th>
+                      <th id="th-rate">Rate</th>
+                      <th id="th-dose">Dose</th>
+                      <th id="th-effect">Effect</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div id="chart-placeholder" class="hint">Run a simulation to see charts here.</div>
+      </section>
+    </div>
+
+    <section id="error-panel" class="hidden"></section>
+  </section>
+</main>
+
+
+<footer>
+  <p>(C) 2025-26 John George K. &mdash; DMEPUMP TCI algorithm ported to WebAssembly (Pyodide). For research/educational use only &mdash; not a certified medical device.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v314.0.6/full/pyodide.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

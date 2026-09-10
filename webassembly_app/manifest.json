@@ -1,0 +1,16 @@
+{
+  "name": "DMEPUMP TCI \u2014 WebAssembly Edition",
+  "short_name": "DMEPUMP TCI",
+  "description": "Matrix-exponential target-controlled infusion (TCI) simulator running Python in the browser via Pyodide.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1720",
+  "theme_color": "#0f1720",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
