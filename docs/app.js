@@ -129,8 +129,9 @@ function populateModelSelect() {
 
 function applyDrugDefaults() {
   const drug = $("drug-select").value;
-  $("drug-conc-input").value = modelInfo.default_concentration[drug];
-  $("max-rate-input").value = modelInfo.default_max_rate[drug];
+  const drugConc = modelInfo.default_concentration[drug];
+  $("drug-conc-input").value = drugConc;
+  $("max-rate-input").value = +((modelInfo.default_max_rate[drug] / drugConc) * 60).toFixed(1);
   updateUnitLabels();
   applyPatientDefaults();
 }
@@ -152,7 +153,7 @@ function applyPatientDefaults() {
 function updateUnitLabels() {
   const drug = $("drug-select").value;
   $("syringe-unit-label").textContent = modelInfo.syringe_unit[drug] || "";
-  $("rate-unit-label").textContent = modelInfo.rate_unit[drug] || "";
+  $("rate-unit-label").textContent = "mL/hr";
   populateRateDisplaySelect();
 }
 
@@ -185,6 +186,11 @@ function convertDoseValue(dose) {
   if (!isMlPerHrDisplay()) return dose;
   const drugConc = parseFloat($("drug-conc-input").value);
   return dose / drugConc;
+}
+
+function maxRateToNative(mlPerHr) {
+  const drugConc = parseFloat($("drug-conc-input").value);
+  return (mlPerHr * drugConc) / 60;
 }
 
 function displayRateUnit() {
@@ -244,7 +250,7 @@ function gatherParams() {
     conc_unit: modelInfo.conc_unit[drug],
     rate_unit: modelInfo.rate_unit[drug],
     drug_concentration: parseFloat($("drug-conc-input").value),
-    max_rate: parseFloat($("max-rate-input").value),
+    max_rate: maxRateToNative(parseFloat($("max-rate-input").value)),
     dt_seconds: parseFloat($("dt-input").value),
     prediction_window_min: parseFloat($("pred-window-input").value),
     convergence_method: $("convergence-select").value,
