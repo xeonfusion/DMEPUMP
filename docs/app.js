@@ -299,6 +299,8 @@ function renderResults(result) {
 
   renderParamList($("pk-params"), [
     ["V1", `${pk.V1.toFixed(3)} L`],
+    ["V2", `${pk.V2.toFixed(3)} L`],
+    ...(pk.V3 ? [["V3", `${pk.V3.toFixed(3)} L`]] : []),
     ["k10", `${pk.k10.toFixed(5)} /min`],
     ["k12", `${pk.k12.toFixed(5)} /min`],
     ["k21", `${pk.k21.toFixed(5)} /min`],
