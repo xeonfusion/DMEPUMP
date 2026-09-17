@@ -70,8 +70,8 @@ main { padding: 1.5rem; max-width: 1440px; margin: 0 auto; }
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 0.6rem;
-  padding: 1rem;
-  margin-top: 0rem;
+  padding: 0 1rem 1rem;
+  margin-top: 1rem;
 }
 
 .tabs {
@@ -102,7 +102,13 @@ main { padding: 1.5rem; max-width: 1440px; margin: 0 auto; }
 .tab-panel.active { display: block; }
 .tab-panel label:last-child { margin-bottom: 0; }
 
-.chart-pane { min-width: 0; margin-top: -0.25rem; }
+.chart-pane { min-width: 0; }
+/* Matches .sidebar's border-width + padding-top, so whichever of these two
+   is visible lines up with the sidebar's tab row regardless of state. */
+.chart-pane > #results,
+.chart-pane > #chart-placeholder {
+  margin-top: calc(1rem + 1px);
+}
 #chart-placeholder {
   background: var(--panel);
   border: 1px dashed var(--border);
@@ -189,7 +195,6 @@ button.remove-row { color: var(--danger); border-color: var(--danger); padding: 
 .sidebar .actions { margin: 1.2rem 0 0.8rem; }
 .sidebar .actions button { flex: 1 1 auto; }
 
-#results { margin-top: 1.5rem; }
 .chart-wrap {
   position: relative;
   background: var(--panel);
