@@ -31,7 +31,7 @@ from pathlib import Path
 PYODIDE_PYTHON_VERSION = (3, 14)
 
 DIST_NAME = "dmepump_tci_core"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 MODULES = ["tcimodels.py", "core_tci.py"]
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -74,7 +74,7 @@ def build() -> Path:
         "Requires-Dist: scipy\n"
     ).encode()
     wheel_meta = (
-        "Wheel-Version: 1.1\n"
+        "Wheel-Version: 1.1.1\n"
         "Generator: build_wheel.py (bytecode-only)\n"
         "Root-Is-Purelib: true\n"
         "Tag: py3-none-any\n"

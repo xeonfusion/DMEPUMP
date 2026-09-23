@@ -4,7 +4,7 @@
  * app keeps working offline after the first successful load.
  */
 
-const CACHE_VERSION = "dmepump-tci-v5";
+const CACHE_VERSION = "dmepump-tci-v6";
 const APP_SHELL = [
   "./",
   "index.html",
@@ -12,7 +12,7 @@ const APP_SHELL = [
   "app.js",
   "manifest.json",
   "favicon.ico",
-  "python/dist/dmepump_tci_core-1.1.0-py3-none-any.whl",
+  "python/dist/dmepump_tci_core-1.1.1-py3-none-any.whl",
   "icons/icon-192.png",
   "icons/icon-512.png",
   "icons/icon-512-maskable.png",

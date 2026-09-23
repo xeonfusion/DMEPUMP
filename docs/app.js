@@ -4,7 +4,7 @@
  */
 
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.6/full/";
-const ENGINE_WHEEL_URL = "python/dist/dmepump_tci_core-1.1.0-py3-none-any.whl";
+const ENGINE_WHEEL_URL = "python/dist/dmepump_tci_core-1.1.1-py3-none-any.whl";
 
 let pyodide = null;
 let coreTci = null;
