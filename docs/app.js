@@ -4,10 +4,11 @@
  */
 
 const PYODIDE_INDEX_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.6/full/";
-const ENGINE_WHEEL_URL = "python/dist/dmepump_tci_core-1.1.2-py3-none-any.whl";
+const ENGINE_WHEEL_URL = "python/dist/dmepump_tci_core-1.2.2-py3-none-any.whl";
 
 let pyodide = null;
 let coreTci = null;
+let coreTiva = null;
 let modelInfo = null;
 let lastResult = null;
 let concChart = null;
@@ -43,7 +44,7 @@ const crosshairPlugin = {
 Chart.register(crosshairPlugin);
 
 // Shared with the dataset colors below so the tooltip swatches match the legend.
-const SERIES_COLORS = { target: "#93a4b8", cp: "#4fb3ff", ce: "#35d488", rate: "#ff9f43", dose: "#c792ea", effect: "#ffd166" };
+const SERIES_COLORS = { target: "#93a4b8", cp: "#4fb3ff", ce: "#35d488", rate: "#ff9f43", dose: "#c792ea", effect: "#ffd166", bolus: "#ff6b6b", infusion: "#ff9f43" };
 
 function setLoadingStatus(text, pct) {
   $("loading-status").textContent = text;
@@ -79,6 +80,7 @@ async function initPyodide() {
 
   setLoadingStatus("Initializing\u2026", 90);
   coreTci = pyodide.pyimport("core_tci");
+  coreTiva = pyodide.pyimport("coretiva");
   modelInfo = JSON.parse(coreTci.get_model_info_json());
 
   setLoadingStatus("Ready", 100);
@@ -87,6 +89,7 @@ async function initPyodide() {
 
   populateDrugSelect();
   addTargetRow(0, 3.0);
+  addTivaRow(0, 0, 0);
   updateUnitLabels();
 }
 
@@ -155,6 +158,40 @@ function updateUnitLabels() {
   $("syringe-unit-label").textContent = modelInfo.syringe_unit[drug] || "";
   $("rate-unit-label").textContent = "mL/hr";
   populateRateDisplaySelect();
+  populateTivaUnitSelects();
+}
+
+function populateTivaUnitSelects() {
+  const drug = $("drug-select").value;
+  const rateUnit = modelInfo.rate_unit[drug] || "mg/min";
+  const doseUnit = rateUnit.split("/")[0];
+
+  const bolusSelect = $("tiva-bolus-unit-select");
+  const prevBolus = bolusSelect.value || "perkg";
+  bolusSelect.innerHTML = "";
+  [["perkg", `${doseUnit}/kg`], ["total", doseUnit], ["mL", "mL"]].forEach(([value, label]) => {
+    const opt = document.createElement("option");
+    opt.value = value; opt.textContent = label;
+    bolusSelect.appendChild(opt);
+  });
+  bolusSelect.value = prevBolus;
+
+  const infusionSelect = $("tiva-infusion-unit-select");
+  const prevInfusion = infusionSelect.value || "perkgmin";
+  infusionSelect.innerHTML = "";
+  [["perkgmin", `${doseUnit}/kg/min`], ["perkghr", `${doseUnit}/kg/hr`], ["permin", rateUnit], ["mlhr", "mL/hr"]].forEach(([value, label]) => {
+    const opt = document.createElement("option");
+    opt.value = value; opt.textContent = label;
+    infusionSelect.appendChild(opt);
+  });
+  infusionSelect.value = prevInfusion;
+
+  updateTivaTableHeaders();
+}
+
+function updateTivaTableHeaders() {
+  $("tiva-bolus-unit").textContent = $("tiva-bolus-unit-select").selectedOptions[0].textContent;
+  $("tiva-infusion-unit").textContent = $("tiva-infusion-unit-select").selectedOptions[0].textContent;
 }
 
 function populateRateDisplaySelect() {
@@ -235,6 +272,85 @@ function readTargetProfile() {
 }
 
 // ---------------------------------------------------------------------------
+// TIVA mode (manual bolus + infusion schedule)
+// ---------------------------------------------------------------------------
+
+function isTivaEnabled() {
+  return document.querySelector('input[name="tiva-mode"]:checked').value === "enabled";
+}
+
+// TCI mode and TIVA mode are mutually exclusive; keep their radio groups in sync.
+function setRadioGroup(name, value) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach((r) => { r.checked = r.value === value; });
+}
+
+function wireReciprocalModeRadios() {
+  document.querySelectorAll('input[name="tiva-mode"]').forEach((r) => {
+    r.addEventListener("change", () => { if (r.checked) setRadioGroup("tci-mode", r.value === "enabled" ? "disabled" : "enabled"); });
+  });
+  document.querySelectorAll('input[name="tci-mode"]').forEach((r) => {
+    r.addEventListener("change", () => { if (r.checked) setRadioGroup("tiva-mode", r.value === "enabled" ? "disabled" : "enabled"); });
+  });
+}
+
+function addTivaRow(timeMin, bolusPerKg, infusionPerKgMin) {
+  const tbody = document.querySelector("#tiva-table tbody");
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><input type="number" class="tiva-time" value="${timeMin}" step="0.5" min="0"></td>
+    <td><input type="number" class="tiva-bolus" value="${bolusPerKg}" step="0.1" min="0"></td>
+    <td><input type="number" class="tiva-infusion" value="${infusionPerKgMin}" step="0.01" min="0"></td>
+    <td><button type="button" class="remove-row">&times;</button></td>
+  `;
+  row.querySelector(".remove-row").addEventListener("click", () => row.remove());
+  tbody.appendChild(row);
+}
+
+function bolusToPerKg(value, unit, weight, drugConc) {
+  if (unit === "total") return value / weight;
+  if (unit === "mL") return (value * drugConc) / weight;
+  return value; // "perkg": already dose/kg
+}
+
+function infusionToPerKgMin(value, unit, weight, drugConc) {
+  if (unit === "permin") return value / weight;
+  if (unit === "perkghr") return value / 60;
+  if (unit === "mlhr") return (value * drugConc / 60) / weight;
+  return value; // "perkgmin": already dose/kg/min
+}
+
+function readTivaSchedule() {
+  const weight = parseFloat($("weight-input").value);
+  const drugConc = parseFloat($("drug-conc-input").value);
+  const bolusUnit = $("tiva-bolus-unit-select").value;
+  const infusionUnit = $("tiva-infusion-unit-select").value;
+  const rows = document.querySelectorAll("#tiva-table tbody tr");
+  return Array.from(rows).map((row) => [
+    parseFloat(row.querySelector(".tiva-time").value),
+    bolusToPerKg(parseFloat(row.querySelector(".tiva-bolus").value), bolusUnit, weight, drugConc),
+    infusionToPerKgMin(parseFloat(row.querySelector(".tiva-infusion").value), infusionUnit, weight, drugConc),
+  ]);
+}
+
+function gatherTivaParams() {
+  const drug = $("drug-select").value;
+  const model = $("model-select").value;
+  return {
+    drug, model,
+    age: parseFloat($("age-input").value),
+    weight: parseFloat($("weight-input").value),
+    height: parseFloat($("height-input").value),
+    sex: $("sex-select").value,
+    dt_seconds: parseFloat($("dt-input").value),
+    duration_min: parseFloat($("duration-input").value),
+    max_rate: maxRateToNative(parseFloat($("max-rate-input").value)),
+    rsi_mode: $("rsi-checkbox").checked,
+    rsi_bolus_time_sec: parseFloat($("rsi-time-input").value),
+    schedule: readTivaSchedule(),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Simulation run
 // ---------------------------------------------------------------------------
 
@@ -268,9 +384,11 @@ async function runSimulation() {
   $("run-btn").disabled = true;
   $("run-btn").textContent = "Running\u2026";
   try {
-    const params = gatherParams();
-    const resultJson = coreTci.run_simulation_json(JSON.stringify(params));
-    const result = JSON.parse(resultJson);
+    const tiva = isTivaEnabled();
+    const result = tiva
+      ? JSON.parse(coreTiva.run_tiva_json(JSON.stringify(gatherTivaParams())))
+      : JSON.parse(coreTci.run_simulation_json(JSON.stringify(gatherParams())));
+    result.mode = tiva ? "tiva" : "tci";
     lastResult = result;
     renderResults(result);
     $("csv-btn").disabled = false;
@@ -290,6 +408,8 @@ async function runSimulation() {
 function renderResults(result) {
   $("results").classList.remove("hidden");
   $("chart-placeholder").classList.add("hidden");
+  const tiva = result.mode === "tiva";
+  setDataTableMode(tiva);
 
   const pk = result.pk_summary;
   $("pk-summary").textContent =
@@ -306,9 +426,11 @@ function renderResults(result) {
     ["k21", `${pk.k21.toFixed(5)} /min`],
     ...(pk.k13 || pk.k31 ? [["k13", `${pk.k13.toFixed(5)} /min`], ["k31", `${pk.k31.toFixed(5)} /min`]] : []),
     ["ke0", `${pk.ke0.toFixed(4)} /min`],
-    ["Initial tpeak", `${result.initial_tpeak_sec.toFixed(1)} s`],
-    ["Target tpeak", `${result.target_tpeak_sec.toFixed(1)} s`],
-    ["Loading dose", `${result.loading_dose.toFixed(3)} ${result.dose_unit}`],
+    ...(tiva ? [] : [
+      ["Initial tpeak", `${result.initial_tpeak_sec.toFixed(1)} s`],
+      ["Target tpeak", `${result.target_tpeak_sec.toFixed(1)} s`],
+      ["Loading dose", `${result.loading_dose.toFixed(3)} ${result.dose_unit}`],
+    ]),
   ]);
 
   const pd = result.pd_summary;
@@ -322,49 +444,73 @@ function renderResults(result) {
   const asPoints = (arr) => arr.map((v, i) => ({ x: timeMin[i], y: v }));
 
   if (concChart) concChart.destroy();
+  const concDatasets = tiva ? [] : [
+    { label: `Target (${result.conc_unit})`, data: asPoints(result.target), borderColor: SERIES_COLORS.target, borderDash: [4, 3], pointRadius: 0 },
+  ];
+  concDatasets.push(
+    { label: `Cp (${result.conc_unit})`, data: asPoints(result.cp), borderColor: SERIES_COLORS.cp, pointRadius: 0 },
+    { label: `Ce (${result.conc_unit})`, data: asPoints(result.ce), borderColor: SERIES_COLORS.ce, pointRadius: 0 },
+  );
   concChart = new Chart($("conc-chart"), {
     type: "line",
-    data: {
-      datasets: [
-        { label: `Target (${result.conc_unit})`, data: asPoints(result.target), borderColor: SERIES_COLORS.target, borderDash: [4, 3], pointRadius: 0 },
-        { label: `Cp (${result.conc_unit})`, data: asPoints(result.cp), borderColor: SERIES_COLORS.cp, pointRadius: 0 },
-        { label: `Ce (${result.conc_unit})`, data: asPoints(result.ce), borderColor: SERIES_COLORS.ce, pointRadius: 0 },
-      ],
-    },
+    data: { datasets: concDatasets },
     options: chartOptions("Time (min)", "Concentration"),
   });
 
   const rateUnit = displayRateUnit();
-  const rateDisplayData = result.rate.map(convertRateValue);
 
   if (rateChart) rateChart.destroy();
-  rateChart = new Chart($("rate-chart"), {
-    type: "line",
-    data: {
-      datasets: [
-        { label: `Infusion rate (${rateUnit})`, data: asPoints(rateDisplayData), borderColor: SERIES_COLORS.rate, stepped: true, pointRadius: 0 },
-      ],
-    },
-    options: chartOptions("Time (min)", `Rate (${rateUnit})`),
-  });
+  if (tiva) {
+    const infusionData = result.infusion.map(convertRateValue);
+    rateChart = new Chart($("rate-chart"), {
+      type: "line",
+      data: {
+        datasets: [
+          { label: `Infusion (${rateUnit})`, data: asPoints(infusionData), borderColor: SERIES_COLORS.infusion, stepped: true, pointRadius: 0 },
+          { label: `Effect (${result.effect_type})`, data: asPoints(result.effect), borderColor: SERIES_COLORS.effect, pointRadius: 0, yAxisID: "y1" },
+        ],
+      },
+      options: chartOptions("Time (min)", `Rate (${rateUnit})`, `Effect (${result.effect_type})`),
+    });
+  } else {
+    const rateDisplayData = result.rate.map(convertRateValue);
+    rateChart = new Chart($("rate-chart"), {
+      type: "line",
+      data: {
+        datasets: [
+          { label: `Infusion rate (${rateUnit})`, data: asPoints(rateDisplayData), borderColor: SERIES_COLORS.rate, stepped: true, pointRadius: 0 },
+        ],
+      },
+      options: chartOptions("Time (min)", `Rate (${rateUnit})`),
+    });
+  }
 
   renderTable(result);
 }
 
-function chartOptions(xLabel, yLabel) {
+function chartOptions(xLabel, yLabel, y1Label) {
+  const scales = {
+    x: {
+      type: "linear",
+      title: { display: true, text: xLabel },
+      ticks: { color: "#93a4b8", callback: (v) => Number(v).toFixed(1) },
+      grid: { color: "#2c3b4c" },
+    },
+    y: { title: { display: true, text: yLabel }, ticks: { color: "#93a4b8" }, grid: { color: "#2c3b4c" } },
+  };
+  if (y1Label) {
+    scales.y1 = {
+      position: "right",
+      title: { display: true, text: y1Label },
+      ticks: { color: "#93a4b8" },
+      grid: { display: false },
+    };
+  }
   return {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    scales: {
-      x: {
-        type: "linear",
-        title: { display: true, text: xLabel },
-        ticks: { color: "#93a4b8", callback: (v) => Number(v).toFixed(1) },
-        grid: { color: "#2c3b4c" },
-      },
-      y: { title: { display: true, text: yLabel }, ticks: { color: "#93a4b8" }, grid: { color: "#2c3b4c" } },
-    },
+    scales,
     // built-in tooltip disabled: the crosshair box (see attachChartHover) replaces it
     plugins: { legend: { labels: { color: "#e6edf3" } }, tooltip: { enabled: false } },
   };
@@ -376,10 +522,18 @@ function renderParamList(container, rows) {
     .join("");
 }
 
+function setDataTableMode(tiva) {
+  ["th-target", "th-rate", "th-dose"].forEach((id) => $(id).classList.toggle("hidden", tiva));
+  ["th-bolus", "th-infusion"].forEach((id) => $(id).classList.toggle("hidden", !tiva));
+}
+
 function renderTable(result) {
-  $("th-effect").textContent = `Effect(${result.effect_type})`;
+  const tiva = result.mode === "tiva";
+  $("th-effect").textContent = `Effect(${result.effect_type || ""})`;
   $("th-rate").textContent = `Rate(${displayRateUnit()})`;
   $("th-dose").textContent = `Dose(${displayDoseUnit()})`;
+  $("th-bolus").textContent = `Bolus(${displayDoseUnit()})`;
+  $("th-infusion").textContent = `Infusion(${displayRateUnit()})`;
 
   const tbody = document.querySelector("#data-table tbody");
   tbody.innerHTML = "";
@@ -388,7 +542,16 @@ function renderTable(result) {
   const stride = Math.max(1, Math.floor(n / 500)); // keep the DOM table light for long runs
   for (let i = 0; i < n; i += stride) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `
+    tr.innerHTML = tiva
+      ? `
+      <td>${formatTime(result.time_sec[i])}</td>
+      <td>${result.cp[i].toFixed(3)}</td>
+      <td>${result.ce[i].toFixed(3)}</td>
+      <td>${result.effect[i].toFixed(0)}</td>
+      <td>${convertDoseValue(result.bolus[i]).toFixed(3)}</td>
+      <td>${convertRateValue(result.infusion[i]).toFixed(3)}</td>
+    `
+      : `
       <td>${formatTime(result.time_sec[i])}</td>
       <td>${result.target[i].toFixed(3)}</td>
       <td>${result.cp[i].toFixed(3)}</td>
@@ -426,6 +589,16 @@ function swatch(color) {
 
 function buildTooltipHtml(idx) {
   const r = lastResult;
+  if (r.mode === "tiva") {
+    return (
+      `${swatch(SERIES_COLORS.cp)}Cp: ${r.cp[idx].toFixed(3)} ${r.conc_unit}<br>` +
+      `${swatch(SERIES_COLORS.ce)}Ce: ${r.ce[idx].toFixed(3)} ${r.conc_unit}<br>` +
+      `${swatch(SERIES_COLORS.effect)}Effect(${r.effect_type}): ${r.effect[idx].toFixed(0)}<br>` +
+      `${swatch(SERIES_COLORS.bolus)}Bolus: ${convertDoseValue(r.bolus[idx]).toFixed(3)} ${displayDoseUnit()}<br>` +
+      `${swatch(SERIES_COLORS.infusion)}Infusion: ${convertRateValue(r.infusion[idx]).toFixed(2)} ${displayRateUnit()}<br>` +
+      `Time: ${formatTime(r.time_sec[idx])}`
+    );
+  }
   return (
     `${swatch(SERIES_COLORS.target)}Target: ${r.target[idx].toFixed(3)} ${r.conc_unit}<br>` +
     `${swatch(SERIES_COLORS.cp)}Cp: ${r.cp[idx].toFixed(3)} ${r.conc_unit}<br>` +
@@ -477,9 +650,14 @@ function attachChartHover(canvas, tooltipEl, getChart) {
 function downloadCsv() {
   if (!lastResult) return;
   const r = lastResult;
-  const header = `Time(s),Target(${r.conc_unit}),Cp(${r.conc_unit}),Ce(${r.conc_unit}),Rate(${displayRateUnit()}),Dose(${displayDoseUnit()}),Effect(${r.effect_type})\n`;
+  const tiva = r.mode === "tiva";
+  const header = tiva
+    ? `Time(s),Cp(${r.conc_unit}),Ce(${r.conc_unit}),Effect(${r.effect_type}),Bolus(${displayDoseUnit()}),Infusion(${displayRateUnit()})\n`
+    : `Time(s),Target(${r.conc_unit}),Cp(${r.conc_unit}),Ce(${r.conc_unit}),Rate(${displayRateUnit()}),Dose(${displayDoseUnit()}),Effect(${r.effect_type})\n`;
   const lines = r.time_sec.map((t, i) =>
-    [t, r.target[i], r.cp[i], r.ce[i], convertRateValue(r.rate[i]), convertDoseValue(r.dose[i]), r.effect[i]].join(",")
+    tiva
+      ? [t, r.cp[i], r.ce[i], r.effect[i], convertDoseValue(r.bolus[i]), convertRateValue(r.infusion[i])].join(",")
+      : [t, r.target[i], r.cp[i], r.ce[i], convertRateValue(r.rate[i]), convertDoseValue(r.dose[i]), r.effect[i]].join(",")
   );
   const blob = new Blob([header + lines.join("\n")], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
@@ -522,11 +700,15 @@ window.addEventListener("DOMContentLoaded", () => {
   $("drug-select").addEventListener("change", populateModelSelect);
   $("model-select").addEventListener("change", () => { applyPatientDefaults(); updateModelDescription(); });
   $("add-target-row-btn").addEventListener("click", () => addTargetRow(0, 0));
+  $("add-tiva-row-btn").addEventListener("click", () => addTivaRow(0, 0, 0));
   $("run-btn").addEventListener("click", runSimulation);
   $("csv-btn").addEventListener("click", downloadCsv);
 
   $("rate-display-select").addEventListener("change", () => { if (lastResult) renderResults(lastResult); });
   $("drug-conc-input").addEventListener("input", () => { if (lastResult && isMlPerHrDisplay()) renderResults(lastResult); });
+  $("tiva-bolus-unit-select").addEventListener("change", updateTivaTableHeaders);
+  $("tiva-infusion-unit-select").addEventListener("change", updateTivaTableHeaders);
+  wireReciprocalModeRadios();
 
   initTabs();
 

@@ -38,7 +38,9 @@
             <button type="button" class="tab-btn active" data-tab="drug" role="tab" aria-selected="true">Drug &amp; Model</button>
             <button type="button" class="tab-btn" data-tab="patient" role="tab" aria-selected="false">Patient</button>
             <button type="button" class="tab-btn" data-tab="infusion" role="tab" aria-selected="false">Infusion Setup</button>
-            <button type="button" class="tab-btn" data-tab="profile" role="tab" aria-selected="false">Target Profile</button>
+            <button type="button" class="tab-btn" data-tab="other" role="tab" aria-selected="false">Other</button>
+            <button type="button" class="tab-btn" data-tab="profile" role="tab" aria-selected="false">TCI Mode</button>
+            <button type="button" class="tab-btn" data-tab="tiva" role="tab" aria-selected="false">TIVA Mode</button>
           </div>
 
           <div class="tab-panel active" data-panel="drug">
@@ -72,6 +74,32 @@
           </div>
 
           <div class="tab-panel" data-panel="infusion">
+            <label>Drug concentration (syringe)
+              <input type="number" id="drug-conc-input" value="10" step="0.1">
+              <span id="syringe-unit-label" class="unit"></span>
+            </label>
+            <label>Max infusion rate
+              <input type="number" id="max-rate-input" value="1200" step="10" min="0">
+              <span id="rate-unit-label" class="unit"></span>
+            </label>
+            <label>Rate display unit
+              <select id="rate-display-select"></select>
+            </label>
+            <label class="checkbox"><input type="checkbox" id="rsi-checkbox"> RSI bolus mode</label>
+            <label>RSI bolus time (s) <input type="number" id="rsi-time-input" value="10" step="1" min="1"></label>
+          </div>
+
+          <div class="tab-panel" data-panel="other">
+            <label>Step time (s) <input type="number" id="dt-input" value="10" step="1" min="1"></label>
+            <label>Prediction window (min) <input type="number" id="pred-window-input" value="45" step="1" min="5"></label>
+            <label>Total duration (min) <input type="number" id="duration-input" value="30" step="1" min="1"></label>
+          </div>
+
+          <div class="tab-panel" data-panel="profile">
+            <div class="radio-group" role="radiogroup" aria-label="TCI mode">
+              <label class="radio"><input type="radio" name="tci-mode" id="tci-mode-enabled" value="enabled" checked> Enabled</label>
+              <label class="radio"><input type="radio" name="tci-mode" id="tci-mode-disabled" value="disabled"> Disabled</label>
+            </div>
             <label>Targeting mode
               <select id="targeting-mode-select">
                 <option value="Effect-site">Effect-site</option>
@@ -84,30 +112,36 @@
                 <option value="Jacobian Newton-Raphson">Jacobian Newton-Raphson</option>
               </select>
             </label>
-            <label>Drug concentration (syringe)
-              <input type="number" id="drug-conc-input" value="10" step="0.1">
-              <span id="syringe-unit-label" class="unit"></span>
-            </label>
-            <label>Max infusion rate
-              <input type="number" id="max-rate-input" value="1200" step="10" min="0">
-              <span id="rate-unit-label" class="unit"></span>
-            </label>
-            <label>Rate display unit
-              <select id="rate-display-select"></select>
-            </label>
-            <label>Step time (s) <input type="number" id="dt-input" value="10" step="1" min="1"></label>
-            <label>Prediction window (min) <input type="number" id="pred-window-input" value="45" step="1" min="5"></label>
-            <label class="checkbox"><input type="checkbox" id="rsi-checkbox"> RSI bolus mode</label>
-            <label>RSI bolus time (s) <input type="number" id="rsi-time-input" value="10" step="1" min="1"></label>
-          </div>
-
-          <div class="tab-panel" data-panel="profile">
-            <label>Total duration (min) <input type="number" id="duration-input" value="30" step="1" min="1"></label>
             <table id="target-table">
               <thead><tr><th>Time (min)</th><th>Target Ce/Cp</th><th></th></tr></thead>
               <tbody></tbody>
             </table>
             <button id="add-target-row-btn" type="button">+ Add step</button>
+          </div>
+
+          <div class="tab-panel" data-panel="tiva">
+            <div class="radio-group" role="radiogroup" aria-label="TIVA mode">
+              <label class="radio"><input type="radio" name="tiva-mode" id="tiva-mode-disabled" value="disabled" checked> Disabled</label>
+              <label class="radio"><input type="radio" name="tiva-mode" id="tiva-mode-enabled" value="enabled"> Enabled</label>
+            </div>
+            <label>Bolus unit
+              <select id="tiva-bolus-unit-select"></select>
+            </label>
+            <label>Infusion unit
+              <select id="tiva-infusion-unit-select"></select>
+            </label>
+            <table id="tiva-table">
+              <thead>
+                <tr>
+                  <th>Time (min)</th>
+                  <th>Bolus (<span id="tiva-bolus-unit"></span>)</th>
+                  <th>Infusion (<span id="tiva-infusion-unit"></span>)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <button id="add-tiva-row-btn" type="button">+ Add step</button>
           </div>
         </div>
 
@@ -162,6 +196,8 @@
                       <th id="th-rate">Rate</th>
                       <th id="th-dose">Dose</th>
                       <th id="th-effect">Effect</th>
+                      <th id="th-bolus" class="hidden">Bolus</th>
+                      <th id="th-infusion" class="hidden">Infusion</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
