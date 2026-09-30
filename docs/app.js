@@ -16,11 +16,6 @@ let rateChart = null;
 
 const $ = (id) => document.getElementById(id);
 
-// ---------------------------------------------------------------------------
-// Crosshair + info tooltip (mirrors the mouse-motion cursor/tooltip in the
-// original Tkinter/Matplotlib app: a vertical line synced across both charts
-// plus a floating box with Cp/Ce/Rate/Dose/Effect/Time at the nearest sample).
-// ---------------------------------------------------------------------------
 const crosshairState = { xMin: null, active: false };
 
 const crosshairPlugin = {
@@ -43,16 +38,12 @@ const crosshairPlugin = {
 };
 Chart.register(crosshairPlugin);
 
-// Null/blank/non-numeric numeric inputs (schedule rows, patient data, infusion setup) default
-// to 0 instead of NaN; throws so callers' try/catch can surface "Invalid data entered".
 function numOrZero(value) {
   const n = parseFloat(value);
   if (Number.isFinite(n)) return n;
   throw new Error("Invalid data entered");
 }
 
-// Age/weight/height of 0 (or negative) are physiologically invalid and crash several PK
-// models downstream (e.g. Eleveld raises 0 to a negative power) - reject before simulating.
 function positiveNumOrThrow(value) {
   const n = numOrZero(value);
   if (n > 0) return n;
@@ -91,7 +82,6 @@ async function initPyodide() {
   await pyodide.loadPackage(["numpy", "scipy"]);
 
   setLoadingStatus("Loading TCI engine\u2026", 70);
-  // Compiled wheel (bytecode only, see build/build_wheel.py) - no .py source is fetched.
   await pyodide.loadPackage([ENGINE_WHEEL_URL]);
 
   setLoadingStatus("Initializing\u2026", 90);
@@ -528,7 +518,6 @@ function chartOptions(xLabel, yLabel, y1Label) {
     maintainAspectRatio: false,
     animation: false,
     scales,
-    // built-in tooltip disabled: the crosshair box (see attachChartHover) replaces it
     plugins: { legend: { labels: { color: "#e6edf3" } }, tooltip: { enabled: false } },
   };
 }
