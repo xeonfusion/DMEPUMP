@@ -31,7 +31,7 @@ from pathlib import Path
 PYODIDE_PYTHON_VERSION = (3, 14)
 
 DIST_NAME = "dmepump_tci_core"
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 MODULES = ["tcimodels.py", "core_tci.py", "coretiva.py"]
 
 ROOT = Path(__file__).resolve().parent.parent
