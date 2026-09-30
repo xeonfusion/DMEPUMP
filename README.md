@@ -1,5 +1,5 @@
 # DMEPUMP
-DMEPUMP (C) 2025-26 John George K. algorithm for Target Control Infusion (TCI) calculation and simulation
+DMEPUMP (C) 2025-26 John George K. algorithm for Target Control Infusion (TCI) and Total Intravenous Anesthesia (TIVA) calculation and simulation
 
 For the Web version visit: https://xeonfusion.github.io/DMEPUMP/ (can be added to home screen in iOS and Android)
 
@@ -16,5 +16,6 @@ Supports:
 - Infusion rate limitation
 - Custom simulation step time
 - Fast-mode and real-time mode simulation 
-
+- TCI mode and TIVA mode simulation
+  
 <img width="1394" height="788" alt="Screenshot 2026-08-31 at 11 59 03 AM" src="https://github.com/user-attachments/assets/916ece03-7f3a-42e0-9d1d-7f01b40211b9" />
