@@ -4,7 +4,7 @@
  * app keeps working offline after the first successful load.
  */
 
-const CACHE_VERSION = "dmepump-tci-v11";
+const CACHE_VERSION = "dmepump-tci-v12";
 const APP_SHELL = [
   "./",
   "index.html",

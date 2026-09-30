@@ -43,6 +43,22 @@ const crosshairPlugin = {
 };
 Chart.register(crosshairPlugin);
 
+// Null/blank/non-numeric numeric inputs (schedule rows, patient data, infusion setup) default
+// to 0 instead of NaN; throws so callers' try/catch can surface "Invalid data entered".
+function numOrZero(value) {
+  const n = parseFloat(value);
+  if (Number.isFinite(n)) return n;
+  throw new Error("Invalid data entered");
+}
+
+// Age/weight/height of 0 (or negative) are physiologically invalid and crash several PK
+// models downstream (e.g. Eleveld raises 0 to a negative power) - reject before simulating.
+function positiveNumOrThrow(value) {
+  const n = numOrZero(value);
+  if (n > 0) return n;
+  throw new Error("Invalid data entered");
+}
+
 // Shared with the dataset colors below so the tooltip swatches match the legend.
 const SERIES_COLORS = { target: "#93a4b8", cp: "#4fb3ff", ce: "#35d488", rate: "#ff9f43", dose: "#c792ea", effect: "#ffd166", bolus: "#ff6b6b", infusion: "#ff9f43" };
 
@@ -215,18 +231,18 @@ function isMlPerHrDisplay() {
 
 function convertRateValue(rate) {
   if (!isMlPerHrDisplay()) return rate;
-  const drugConc = parseFloat($("drug-conc-input").value);
+  const drugConc = numOrZero($("drug-conc-input").value);
   return (rate / drugConc) * 60;
 }
 
 function convertDoseValue(dose) {
   if (!isMlPerHrDisplay()) return dose;
-  const drugConc = parseFloat($("drug-conc-input").value);
+  const drugConc = numOrZero($("drug-conc-input").value);
   return dose / drugConc;
 }
 
 function maxRateToNative(mlPerHr) {
-  const drugConc = parseFloat($("drug-conc-input").value);
+  const drugConc = numOrZero($("drug-conc-input").value);
   return (mlPerHr * drugConc) / 60;
 }
 
@@ -266,8 +282,8 @@ function addTargetRow(timeMin, targetVal) {
 function readTargetProfile() {
   const rows = document.querySelectorAll("#target-table tbody tr");
   return Array.from(rows).map((row) => [
-    parseFloat(row.querySelector(".target-time").value),
-    parseFloat(row.querySelector(".target-value").value),
+    numOrZero(row.querySelector(".target-time").value),
+    numOrZero(row.querySelector(".target-value").value),
   ]);
 }
 
@@ -320,15 +336,15 @@ function infusionToPerKgMin(value, unit, weight, drugConc) {
 }
 
 function readTivaSchedule() {
-  const weight = parseFloat($("weight-input").value);
-  const drugConc = parseFloat($("drug-conc-input").value);
+  const weight = positiveNumOrThrow($("weight-input").value);
+  const drugConc = numOrZero($("drug-conc-input").value);
   const bolusUnit = $("tiva-bolus-unit-select").value;
   const infusionUnit = $("tiva-infusion-unit-select").value;
   const rows = document.querySelectorAll("#tiva-table tbody tr");
   return Array.from(rows).map((row) => [
-    parseFloat(row.querySelector(".tiva-time").value),
-    bolusToPerKg(parseFloat(row.querySelector(".tiva-bolus").value), bolusUnit, weight, drugConc),
-    infusionToPerKgMin(parseFloat(row.querySelector(".tiva-infusion").value), infusionUnit, weight, drugConc),
+    numOrZero(row.querySelector(".tiva-time").value),
+    bolusToPerKg(numOrZero(row.querySelector(".tiva-bolus").value), bolusUnit, weight, drugConc),
+    infusionToPerKgMin(numOrZero(row.querySelector(".tiva-infusion").value), infusionUnit, weight, drugConc),
   ]);
 }
 
@@ -337,15 +353,15 @@ function gatherTivaParams() {
   const model = $("model-select").value;
   return {
     drug, model,
-    age: parseFloat($("age-input").value),
-    weight: parseFloat($("weight-input").value),
-    height: parseFloat($("height-input").value),
+    age: positiveNumOrThrow($("age-input").value),
+    weight: positiveNumOrThrow($("weight-input").value),
+    height: positiveNumOrThrow($("height-input").value),
     sex: $("sex-select").value,
-    dt_seconds: parseFloat($("dt-input").value),
-    duration_min: parseFloat($("duration-input").value),
-    max_rate: maxRateToNative(parseFloat($("max-rate-input").value)),
+    dt_seconds: numOrZero($("dt-input").value),
+    duration_min: numOrZero($("duration-input").value),
+    max_rate: maxRateToNative(numOrZero($("max-rate-input").value)),
     rsi_mode: $("rsi-checkbox").checked,
-    rsi_bolus_time_sec: parseFloat($("rsi-time-input").value),
+    rsi_bolus_time_sec: numOrZero($("rsi-time-input").value),
     schedule: readTivaSchedule(),
   };
 }
@@ -359,22 +375,22 @@ function gatherParams() {
   const model = $("model-select").value;
   return {
     drug, model,
-    age: parseFloat($("age-input").value),
-    weight: parseFloat($("weight-input").value),
-    height: parseFloat($("height-input").value),
+    age: positiveNumOrThrow($("age-input").value),
+    weight: positiveNumOrThrow($("weight-input").value),
+    height: positiveNumOrThrow($("height-input").value),
     sex: $("sex-select").value,
     conc_unit: modelInfo.conc_unit[drug],
     rate_unit: modelInfo.rate_unit[drug],
-    drug_concentration: parseFloat($("drug-conc-input").value),
-    max_rate: maxRateToNative(parseFloat($("max-rate-input").value)),
-    dt_seconds: parseFloat($("dt-input").value),
-    prediction_window_min: parseFloat($("pred-window-input").value),
+    drug_concentration: numOrZero($("drug-conc-input").value),
+    max_rate: maxRateToNative(numOrZero($("max-rate-input").value)),
+    dt_seconds: numOrZero($("dt-input").value),
+    prediction_window_min: numOrZero($("pred-window-input").value),
     convergence_method: $("convergence-select").value,
     targeting_mode: $("targeting-mode-select").value,
     ke0_mode: $("ke0-mode-select").value,
     rsi_mode: $("rsi-checkbox").checked,
-    rsi_bolus_time_sec: parseFloat($("rsi-time-input").value),
-    duration_min: parseFloat($("duration-input").value),
+    rsi_bolus_time_sec: numOrZero($("rsi-time-input").value),
+    duration_min: numOrZero($("duration-input").value),
     target_profile: readTargetProfile(),
   };
 }
@@ -650,23 +666,29 @@ function attachChartHover(canvas, tooltipEl, getChart) {
 
 function downloadCsv() {
   if (!lastResult) return;
-  const r = lastResult;
-  const tiva = r.mode === "tiva";
-  const header = tiva
-    ? `Time(s),Cp(${r.conc_unit}),Ce(${r.conc_unit}),Effect(${r.effect_type}),Bolus(${displayDoseUnit()}),Infusion(${displayRateUnit()})\n`
-    : `Time(s),Target(${r.conc_unit}),Cp(${r.conc_unit}),Ce(${r.conc_unit}),Rate(${displayRateUnit()}),Dose(${displayDoseUnit()}),Effect(${r.effect_type})\n`;
-  const lines = r.time_sec.map((t, i) =>
-    tiva
-      ? [t, r.cp[i], r.ce[i], r.effect[i], convertDoseValue(r.bolus[i]), convertRateValue(r.infusion[i])].join(",")
-      : [t, r.target[i], r.cp[i], r.ce[i], convertRateValue(r.rate[i]), convertDoseValue(r.dose[i]), r.effect[i]].join(",")
-  );
-  const blob = new Blob([header + lines.join("\n")], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `dmepump_tci_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  clearError();
+  try {
+    const r = lastResult;
+    const tiva = r.mode === "tiva";
+    const header = tiva
+      ? `Time(s),Cp(${r.conc_unit}),Ce(${r.conc_unit}),Effect(${r.effect_type}),Bolus(${displayDoseUnit()}),Infusion(${displayRateUnit()})\n`
+      : `Time(s),Target(${r.conc_unit}),Cp(${r.conc_unit}),Ce(${r.conc_unit}),Rate(${displayRateUnit()}),Dose(${displayDoseUnit()}),Effect(${r.effect_type})\n`;
+    const lines = r.time_sec.map((t, i) =>
+      tiva
+        ? [t, r.cp[i], r.ce[i], r.effect[i], convertDoseValue(r.bolus[i]), convertRateValue(r.infusion[i])].join(",")
+        : [t, r.target[i], r.cp[i], r.ce[i], convertRateValue(r.rate[i]), convertDoseValue(r.dose[i]), r.effect[i]].join(",")
+    );
+    const blob = new Blob([header + lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dmepump_tci_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    showError(err);
+  }
 }
 
 function initTabs() {
@@ -705,8 +727,16 @@ window.addEventListener("DOMContentLoaded", () => {
   $("run-btn").addEventListener("click", runSimulation);
   $("csv-btn").addEventListener("click", downloadCsv);
 
-  $("rate-display-select").addEventListener("change", () => { if (lastResult) renderResults(lastResult); });
-  $("drug-conc-input").addEventListener("input", () => { if (lastResult && isMlPerHrDisplay()) renderResults(lastResult); });
+  $("rate-display-select").addEventListener("change", () => {
+    if (!lastResult) return;
+    clearError();
+    try { renderResults(lastResult); } catch (err) { console.error(err); showError(err); }
+  });
+  $("drug-conc-input").addEventListener("input", () => {
+    if (!lastResult || !isMlPerHrDisplay()) return;
+    clearError();
+    try { renderResults(lastResult); } catch (err) { console.error(err); showError(err); }
+  });
   $("tiva-bolus-unit-select").addEventListener("change", updateTivaTableHeaders);
   $("tiva-infusion-unit-select").addEventListener("change", updateTivaTableHeaders);
   wireReciprocalModeRadios();
