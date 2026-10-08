@@ -17,5 +17,9 @@ Supports:
 - Custom simulation step time
 - Fast-mode and real-time mode simulation 
 - TCI mode and TIVA mode simulation
-  
-<img width="1394" height="788" alt="Screenshot 2026-08-31 at 11 59 03 AM" src="https://github.com/user-attachments/assets/916ece03-7f3a-42e0-9d1d-7f01b40211b9" />
+
+<img width="1427" height="795" alt="Screenshot 2026-10-05 at 2 17 51 PM" src="https://github.com/user-attachments/assets/ed3edb77-4ab8-4a35-aef8-32a3e8921698" />
+
+<img width="1429" height="793" alt="Screenshot 2026-10-05 at 2 12 18 PM" src="https://github.com/user-attachments/assets/a606dd3e-b4a6-4546-8aaa-cee181999722" />
+
+<img width="1433" height="787" alt="Screenshot 2026-10-05 at 2 12 31 PM" src="https://github.com/user-attachments/assets/606c88d2-908e-414c-81b0-414966e9fa68" />
