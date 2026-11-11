@@ -231,7 +231,7 @@ button.remove-row { color: var(--danger); border-color: var(--danger); padding: 
   border-radius: 50%;
   margin-right: 0.35rem;
 }
-.table-scroll { max-height: 400px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-scroll { max-height: 700px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 #error-panel {
   background: #3a1c1c;
